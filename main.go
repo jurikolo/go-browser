@@ -306,14 +306,6 @@ func main() {
 	
 	// Ensure browser is closed when main function exits
 	defer func() {
-		// Save cookies before closing
-		if err := cookieManager.ExtractCookiesFromChromedp(browser.Context()); err != nil {
-			log.Printf("Warning: Failed to extract cookies: %v", err)
-		} else {
-			if err := cookieManager.SaveCookiesToDisk(); err != nil {
-				log.Printf("Warning: Failed to save cookies: %v", err)
-			}
-		}
 		browser.Close()
 	}()
 	

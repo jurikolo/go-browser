@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -23,20 +24,20 @@ type LinkClickMsg struct {
 }
 
 type Styles struct {
-	URLBar        lipgloss.Style
-	URLInput      lipgloss.Style
-	Content       lipgloss.Style
-	StatusBar     lipgloss.Style
-	Loading       lipgloss.Style
-	CookieCount   lipgloss.Style
+	URLBar         lipgloss.Style
+	URLInput       lipgloss.Style
+	Content        lipgloss.Style
+	StatusBar      lipgloss.Style
+	Loading        lipgloss.Style
+	CookieCount    lipgloss.Style
 	ScrollPosition lipgloss.Style
-	Help          lipgloss.Style
-	Link          lipgloss.Style
-	VisitedLink   lipgloss.Style
-	LinkNumber    lipgloss.Style
-	Heading       lipgloss.Style
-	Error         lipgloss.Style
-	Success       lipgloss.Style
+	Help           lipgloss.Style
+	Link           lipgloss.Style
+	VisitedLink    lipgloss.Style
+	LinkNumber     lipgloss.Style
+	Heading        lipgloss.Style
+	Error          lipgloss.Style
+	Success        lipgloss.Style
 }
 
 type Model struct {
@@ -100,12 +101,12 @@ var (
 			Bold(true)
 
 	cookieCountStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("5")).
-			Bold(true)
+				Foreground(lipgloss.Color("5")).
+				Bold(true)
 
 	scrollPositionStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("4")).
-			Bold(true)
+				Foreground(lipgloss.Color("4")).
+				Bold(true)
 
 	// Help Footer styles
 	helpStyle = lipgloss.NewStyle().
@@ -120,8 +121,8 @@ var (
 			Underline(true)
 
 	visitedLinkStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8")).
-			Underline(true)
+				Foreground(lipgloss.Color("8")).
+				Underline(true)
 
 	linkNumberStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("9")).
@@ -146,35 +147,35 @@ var (
 
 	// Light mode styles
 	lightURLBarStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("6")).
-			Padding(0, 1).
-			Background(lipgloss.Color("#E0E0E0")).
-			Foreground(lipgloss.Color("#000000")).
-			Bold(true)
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("6")).
+				Padding(0, 1).
+				Background(lipgloss.Color("#E0E0E0")).
+				Foreground(lipgloss.Color("#000000")).
+				Bold(true)
 
 	lightURLInputStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("6")).
-			Padding(0, 1).
-			Background(lipgloss.Color("#F5F5F5")).
-			Foreground(lipgloss.Color("#000000")).
-			Bold(true)
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("6")).
+				Padding(0, 1).
+				Background(lipgloss.Color("#F5F5F5")).
+				Foreground(lipgloss.Color("#000000")).
+				Bold(true)
 
 	lightContentStyle = lipgloss.NewStyle().
-			Padding(1, 2).
-			MaxWidth(120).
-			Foreground(lipgloss.Color("#212121")).
-			Background(lipgloss.Color("#FFFFFF"))
+				Padding(1, 2).
+				MaxWidth(120).
+				Foreground(lipgloss.Color("#212121")).
+				Background(lipgloss.Color("#FFFFFF"))
 
 	lightStatusBarStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderTop(true).
-			BorderForeground(lipgloss.Color("8")).
-			Padding(0, 1).
-			Background(lipgloss.Color("#F5F5F5")).
-			Foreground(lipgloss.Color("#000000")).
-			Align(lipgloss.Left)
+				BorderStyle(lipgloss.NormalBorder()).
+				BorderTop(true).
+				BorderForeground(lipgloss.Color("8")).
+				Padding(0, 1).
+				Background(lipgloss.Color("#F5F5F5")).
+				Foreground(lipgloss.Color("#000000")).
+				Align(lipgloss.Left)
 
 	lightHelpStyle = lipgloss.NewStyle().
 			Padding(0, 1).
@@ -187,18 +188,18 @@ var (
 			Underline(true)
 
 	lightVisitedLinkStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("245")).
-			Underline(true)
+				Foreground(lipgloss.Color("245")).
+				Underline(true)
 
 	lightLinkNumberStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("9")).
-			Bold(true).
-			Background(lipgloss.Color("7"))
+				Foreground(lipgloss.Color("9")).
+				Bold(true).
+				Background(lipgloss.Color("7"))
 
 	lightHeadingStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("2")).
-			Bold(true).
-			Underline(true)
+				Foreground(lipgloss.Color("2")).
+				Bold(true).
+				Underline(true)
 
 	statusStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("2"))
@@ -215,37 +216,37 @@ var (
 func GetStyles(darkMode bool) Styles {
 	if darkMode {
 		return Styles{
-			URLBar:        urlBarStyle,
-			URLInput:      urlInputStyle,
-			Content:       contentStyle,
-			StatusBar:     statusBarStyle,
-			Loading:       loadingStyle,
-			CookieCount:   cookieCountStyle,
+			URLBar:         urlBarStyle,
+			URLInput:       urlInputStyle,
+			Content:        contentStyle,
+			StatusBar:      statusBarStyle,
+			Loading:        loadingStyle,
+			CookieCount:    cookieCountStyle,
 			ScrollPosition: scrollPositionStyle,
-			Help:          helpStyle,
-			Link:          linkStyle,
-			VisitedLink:   visitedLinkStyle,
-			LinkNumber:    linkNumberStyle,
-			Heading:       headingStyle,
-			Error:         errorStyle,
-			Success:       successStyle,
+			Help:           helpStyle,
+			Link:           linkStyle,
+			VisitedLink:    visitedLinkStyle,
+			LinkNumber:     linkNumberStyle,
+			Heading:        headingStyle,
+			Error:          errorStyle,
+			Success:        successStyle,
 		}
 	}
 	return Styles{
-		URLBar:        lightURLBarStyle,
-		URLInput:      lightURLInputStyle,
-		Content:       lightContentStyle,
-		StatusBar:     lightStatusBarStyle,
-		Loading:       loadingStyle,
-		CookieCount:   cookieCountStyle,
+		URLBar:         lightURLBarStyle,
+		URLInput:       lightURLInputStyle,
+		Content:        lightContentStyle,
+		StatusBar:      lightStatusBarStyle,
+		Loading:        loadingStyle,
+		CookieCount:    cookieCountStyle,
 		ScrollPosition: scrollPositionStyle,
-		Help:          lightHelpStyle,
-		Link:          lightLinkStyle,
-		VisitedLink:   lightVisitedLinkStyle,
-		LinkNumber:    lightLinkNumberStyle,
-		Heading:       lightHeadingStyle,
-		Error:         errorStyle,
-		Success:       successStyle,
+		Help:           lightHelpStyle,
+		Link:           lightLinkStyle,
+		VisitedLink:    lightVisitedLinkStyle,
+		LinkNumber:     lightLinkNumberStyle,
+		Heading:        lightHeadingStyle,
+		Error:          errorStyle,
+		Success:        successStyle,
 	}
 }
 
@@ -287,6 +288,13 @@ func (m *Model) SetLoading(url string) {
 	m.viewport.SetContent(m.styles.Content.Render(m.content))
 }
 
+func (m *Model) SetUrlPrefix(url string) {
+	if !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "/")) {
+		m.currentURL = "https://" + url
+	}
+	return
+}
+
 // Init the model
 func (m Model) Init() tea.Cmd {
 	m.styles = GetStyles(m.darkMode)
@@ -318,6 +326,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.status = "error"
 					m.content = m.styles.Error.Render("Please enter a valid URL")
 				} else {
+					m.SetUrlPrefix(m.currentURL)
 					m.status = "loading"
 					m.mode = "normal"
 					m.content = fmt.Sprintf("Loading content from %s...", m.currentURL)
@@ -383,7 +392,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update viewport in all modes
 	m.viewport, cmd = m.viewport.Update(msg)
 	cmds = append(cmds, cmd)
-	
+
 	// Update urlInput in all modes except when already handled in url-input mode
 	if m.mode != "url-input" {
 		m.urlInput, cmd = m.urlInput.Update(msg)

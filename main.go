@@ -394,7 +394,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			// Graceful shutdown
 			m.syncCookies()
 			m.browser.Close()
@@ -403,24 +403,6 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Reload current URL
 			if m.currentURL != "" && !m.loading {
 				return m, m.navigateToURL(m.currentURL)
-			}
-		case "b":
-			// Navigate back
-			if !m.loading {
-				return m, m.navigateBack()
-			}
-			return m, nil
-		case "f":
-			// Navigate forward
-			if !m.loading {
-				return m, m.navigateForward()
-			}
-			return m, nil
-		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-			if !m.loading {
-				// Handle link navigation
-				linkNumber := int(msg.String()[0] - '1')
-				return m, m.handleLinkClick(linkNumber)
 			}
 		case "g":
 			// Pass through to UI for URL input

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestHistory_Add(t *testing.T) {
+func TestHistoryAdd(t *testing.T) {
 	h := NewHistory(10)
 
 	// Test adding entries
@@ -40,15 +40,13 @@ func TestHistory_Add(t *testing.T) {
 	}
 }
 
-func TestHistory_Navigation(t *testing.T) {
+func TestHistoryNavigation(t *testing.T) {
 	h := NewHistory(10)
 
-	// Add some entries
 	h.Add("https://example.com", "Example")
 	h.Add("https://example.org", "Example Org")
 	h.Add("https://example.net", "Example Net")
 
-	// Test CanGoBack and CanGoForward
 	if !h.CanGoBack() {
 		t.Error("Should be able to go back")
 	}
@@ -56,7 +54,7 @@ func TestHistory_Navigation(t *testing.T) {
 		t.Error("Should not be able to go forward")
 	}
 
-	// Test Back
+	// Test navigation back
 	entry, err := h.Back()
 	if err != nil {
 		t.Errorf("Back failed: %v", err)
@@ -68,7 +66,7 @@ func TestHistory_Navigation(t *testing.T) {
 		t.Error("Should be able to go forward after going back")
 	}
 
-	// Test Forward
+	// Test navigation forward
 	entry, err = h.Forward()
 	if err != nil {
 		t.Errorf("Forward failed: %v", err)
@@ -92,8 +90,8 @@ func TestHistory_Navigation(t *testing.T) {
 	}
 }
 
-func TestHistory_CircularBuffer(t *testing.T) {
-	h := NewHistory(3) // Max size of 3
+func TestHistoryCircularBuffer(t *testing.T) {
+	h := NewHistory(3)
 
 	// Add more entries than max size
 	h.Add("https://example1.com", "Example 1")
@@ -112,7 +110,7 @@ func TestHistory_CircularBuffer(t *testing.T) {
 	}
 }
 
-func TestHistory_Clear(t *testing.T) {
+func TestHistoryClear(t *testing.T) {
 	h := NewHistory(10)
 	h.Add("https://example.com", "Example")
 	h.Add("https://example.org", "Example Org")
@@ -126,14 +124,12 @@ func TestHistory_Clear(t *testing.T) {
 	}
 }
 
-func TestHistory_ScrollPosition(t *testing.T) {
+func TestHistoryScrollPosition(t *testing.T) {
 	h := NewHistory(10)
 	h.Add("https://example.com", "Example")
 	
-	// Set scroll position
 	h.SetScrollPosition(100)
 	
-	// Get scroll position
 	pos := h.GetScrollPosition()
 	if pos != 100 {
 		t.Errorf("Expected scroll position 100, got %d", pos)
@@ -147,10 +143,9 @@ func TestHistory_ScrollPosition(t *testing.T) {
 	}
 }
 
-func TestHistory_SaveLoad(t *testing.T) {
+func TestHistorySaveLoad(t *testing.T) {
 	h := NewHistory(10)
 	
-	// Add some entries
 	h.Add("https://example.com", "Example")
 	h.Add("https://example.org", "Example Org")
 	
@@ -158,7 +153,6 @@ func TestHistory_SaveLoad(t *testing.T) {
 	h.currentIndex = 0
 	h.SetScrollPosition(50)
 	
-	// Save to disk
 	err := h.SaveToDisk()
 	if err != nil {
 		t.Errorf("SaveToDisk failed: %v", err)
@@ -182,13 +176,13 @@ func TestHistory_SaveLoad(t *testing.T) {
 		t.Errorf("Expected scroll position 50, got %d", h2.entries[0].ScrollPosition)
 	}
 	
-	// Clean up test file
+	// Clean up
 	homeDir, _ := os.UserHomeDir()
 	historyFile := filepath.Join(homeDir, ".config", "chromedp-browser", "history.json")
 	os.Remove(historyFile)
 }
 
-func TestHistory_LoadNonExistent(t *testing.T) {
+func TestHistoryLoadNonExistent(t *testing.T) {
 	h := NewHistory(10)
 	
 	// Make sure the history file doesn't exist
@@ -196,7 +190,7 @@ func TestHistory_LoadNonExistent(t *testing.T) {
 	historyFile := filepath.Join(homeDir, ".config", "chromedp-browser", "history.json")
 	os.Remove(historyFile)
 	
-	// Load from disk (should not error even if file doesn't exist)
+	// Load from disk (should not error)
 	err := h.LoadFromDisk()
 	if err != nil {
 		t.Errorf("LoadFromDisk failed for non-existent file: %v", err)

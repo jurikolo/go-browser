@@ -9,20 +9,54 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Link represents a hyperlink with its text and URL
 type Link struct {
 	Text string
 	URL  string
 }
 
-// NavigateMsg is a message type for navigation requests
 type NavigateMsg struct {
 	URL string
 }
 
-// LinkClickMsg is a message type for link click requests
 type LinkClickMsg struct {
 	LinkNumber int
+}
+
+type Styles struct {
+	URLBar        lipgloss.Style
+	URLInput      lipgloss.Style
+	Content       lipgloss.Style
+	StatusBar     lipgloss.Style
+	Loading       lipgloss.Style
+	CookieCount   lipgloss.Style
+	ScrollPosition lipgloss.Style
+	Help          lipgloss.Style
+	Link          lipgloss.Style
+	VisitedLink   lipgloss.Style
+	LinkNumber    lipgloss.Style
+	Heading       lipgloss.Style
+	Error         lipgloss.Style
+	Success       lipgloss.Style
+}
+
+type Model struct {
+	viewport     viewport.Model
+	urlInput     textinput.Model
+	content      string
+	links        []Link
+	currentURL   string
+	status       string
+	mode         string
+	width        int
+	height       int
+	history      []string
+	historyIndex int
+	styles       Styles
+	darkMode     bool
+}
+
+type UpdateContentMsg struct {
+	Content string
 }
 
 // Styles holds the styling for the UI
@@ -177,7 +211,7 @@ var (
 	footerStyle = statusBarStyle
 )
 
-// GetStyles returns the appropriate styles based on the dark mode setting
+// Return the appropriate styles based on the dark mode setting
 func GetStyles(darkMode bool) Styles {
 	if darkMode {
 		return Styles{
@@ -215,93 +249,51 @@ func GetStyles(darkMode bool) Styles {
 	}
 }
 
-// Styles struct holds all the style definitions
-type Styles struct {
-	URLBar        lipgloss.Style
-	URLInput      lipgloss.Style
-	Content       lipgloss.Style
-	StatusBar     lipgloss.Style
-	Loading       lipgloss.Style
-	CookieCount   lipgloss.Style
-	ScrollPosition lipgloss.Style
-	Help          lipgloss.Style
-	Link          lipgloss.Style
-	VisitedLink   lipgloss.Style
-	LinkNumber    lipgloss.Style
-	Heading       lipgloss.Style
-	Error         lipgloss.Style
-	Success       lipgloss.Style
-}
-
-// Model represents the Bubble Tea model for our browser UI
-type Model struct {
-	viewport     viewport.Model
-	urlInput     textinput.Model
-	content      string
-	links        []Link
-	currentURL   string
-	status       string
-	mode         string
-	width        int
-	height       int
-	history      []string
-	historyIndex int
-	styles       Styles
-	darkMode     bool
-}
-
-// UpdateContentMsg is a message type for updating the content
-type UpdateContentMsg struct {
-	Content string
-}
-
-// UpdateContent updates the content of the UI model
+// Update the content of the UI model
 func (m *Model) UpdateContent(content string) {
 	m.content = content
-	// Update the viewport with the new content
 	m.viewport.SetContent(m.styles.Content.Render(m.content))
 }
 
-// UpdateCurrentURL updates the current URL of the UI model
+// Update the current URL of the UI model
 func (m *Model) UpdateCurrentURL(url string) {
 	m.currentURL = url
 }
 
-// UpdateLinks updates the links of the UI model
+// Update the links of the UI model
 func (m *Model) UpdateLinks(links []Link) {
 	m.links = links
 }
 
-// UpdateStatus updates the status of the UI model
+// Update the status of the UI model
 func (m *Model) UpdateStatus(status string) {
 	m.status = status
 }
 
-// GetCurrentURL returns the current URL
+// Return the current URL
 func (m *Model) GetCurrentURL() string {
 	return m.currentURL
 }
 
-// GetLinks returns the links
+// Return the links
 func (m *Model) GetLinks() []Link {
 	return m.links
 }
 
-// SetLoading sets the UI to a loading state
+// Set the UI to a loading state
 func (m *Model) SetLoading(url string) {
 	m.status = "loading"
 	m.content = fmt.Sprintf("Loading content from %s...", url)
 	m.viewport.SetContent(m.styles.Content.Render(m.content))
 }
 
-// Init initializes the model
+// Init the model
 func (m Model) Init() tea.Cmd {
-	// Initialize styles
 	m.styles = GetStyles(m.darkMode)
 	return textinput.Blink
 }
 
-// Update handles events and updates the model
+// Handle events and update the model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -311,10 +303,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.viewport.Width = msg.Width - 2
-		m.viewport.Height = msg.Height - 5 // Reserve space for header and footer
+		m.viewport.Height = msg.Height - 5
 		m.urlInput.Width = msg.Width - 4
 
-		// Update styles based on window size if needed
 		m.styles = GetStyles(m.darkMode)
 
 	case tea.KeyMsg:
@@ -329,9 +320,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.status = "loading"
 					m.mode = "normal"
-					// Trigger navigation by returning a NavigateMsg
 					m.content = fmt.Sprintf("Loading content from %s...", m.currentURL)
-					// Add to history
 					m.history = append(m.history[:m.historyIndex+1], m.currentURL)
 					m.historyIndex++
 					return m, func() tea.Msg {

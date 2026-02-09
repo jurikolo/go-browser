@@ -18,7 +18,6 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-// Cookie represents an HTTP cookie with all its attributes
 type Cookie struct {
 	Name     string `json:"name"`
 	Value    string `json:"value"`
@@ -30,7 +29,6 @@ type Cookie struct {
 	SameSite string `json:"same_site"`
 }
 
-// CookieManager handles cookie operations with ChromeDP integration
 type CookieManager struct {
 	cookies    []*Cookie
 	configDir  string
@@ -38,7 +36,7 @@ type CookieManager struct {
 	key        []byte
 }
 
-// NewCookieManager creates a new CookieManager instance
+// Create a new CookieManager instance
 func NewCookieManager() (*CookieManager, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -51,10 +49,10 @@ func NewCookieManager() (*CookieManager, error) {
 	}
 
 	cm := &CookieManager{
-		cookies:   make([]*Cookie, 0),
-		configDir: configDir,
-		// Encryption is enabled by default
+		cookies:    make([]*Cookie, 0),
+		configDir:  configDir,
 		encryption: true,
+		// TODO: implement secure generation and storage of a key
 		// In a real implementation, this key should be securely generated and stored
 		key: []byte("1234567890123456"), // 16 bytes for AES-128
 	}
@@ -62,52 +60,43 @@ func NewCookieManager() (*CookieManager, error) {
 	return cm, nil
 }
 
-// LoadCookiesIntoChromedp loads saved cookies into the browser context
+// Loads saved cookies into the browser context
 func (cm *CookieManager) LoadCookiesIntoChromedp(ctx context.Context) error {
-	// Load cookies from disk first
 	if err := cm.LoadCookiesFromDisk(); err != nil {
 		return fmt.Errorf("failed to load cookies from disk: %w", err)
 	}
-	
-	// Validate that we have valid cookies
+
 	if cm.cookies == nil {
 		cm.cookies = make([]*Cookie, 0)
 	}
 
-	// Filter out expired cookies and validate required fields
 	now := time.Now().Unix()
 	validCookies := make([]*Cookie, 0)
 	for _, cookie := range cm.cookies {
-		// Skip cookies without required fields
 		if cookie.Name == "" || cookie.Domain == "" {
 			continue
 		}
-		
-		// Skip expired cookies
+
 		if cookie.Expires == 0 || cookie.Expires > now {
 			validCookies = append(validCookies, cookie)
 		}
 	}
 	cm.cookies = validCookies
 
-	// Convert our cookies to ChromeDP cookies
+	// Convert to ChromeDP cookies
 	var chromedpCookies []*network.CookieParam
 	for _, cookie := range cm.cookies {
-		// Decrypt the cookie value if encryption is enabled
 		value := cookie.Value
 		if cm.encryption && value != "" {
 			decryptedValue, err := cm.decrypt(value)
 			if err != nil {
-				// If decryption fails, log the error and skip this cookie
-				// This might happen if the encryption key has changed or data is corrupted
 				fmt.Printf("Warning: Failed to decrypt cookie %s: %v\n", cookie.Name, err)
-				continue // Skip this cookie
+				continue
 			} else {
 				value = decryptedValue
 			}
 		}
 
-		// Validate required fields
 		if cookie.Name == "" {
 			return fmt.Errorf("cookie name is required")
 		}
@@ -122,7 +111,6 @@ func (cm *CookieManager) LoadCookiesIntoChromedp(ctx context.Context) error {
 			Path:     cookie.Path,
 			HTTPOnly: cookie.HttpOnly,
 			Secure:   cookie.Secure,
-			// Set default values for required fields
 			SameSite: network.CookieSameSiteLax,
 		}
 
@@ -147,7 +135,7 @@ func (cm *CookieManager) LoadCookiesIntoChromedp(ctx context.Context) error {
 		chromedpCookies = append(chromedpCookies, chromedpCookie)
 	}
 
-	// Set cookies in ChromeDP
+	// Now set cookies
 	err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
 		return network.SetCookies(chromedpCookies).Do(ctx)
 	}))
@@ -157,7 +145,7 @@ func (cm *CookieManager) LoadCookiesIntoChromedp(ctx context.Context) error {
 	return nil
 }
 
-// ExtractCookiesFromChromedp extracts cookies from the browser context
+// Extract cookies from the browser context
 func (cm *CookieManager) ExtractCookiesFromChromedp(ctx context.Context) error {
 	var chromedpCookies []*network.Cookie
 	err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
@@ -168,7 +156,7 @@ func (cm *CookieManager) ExtractCookiesFromChromedp(ctx context.Context) error {
 		chromedpCookies = cookies
 		return nil
 	}))
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to extract cookies from browser: %w", err)
 	}
@@ -186,7 +174,6 @@ func (cm *CookieManager) ExtractCookiesFromChromedp(ctx context.Context) error {
 			Secure:   chromedpCookie.Secure,
 		}
 
-		// Set SameSite attribute
 		switch chromedpCookie.SameSite {
 		case network.CookieSameSiteStrict:
 			cookie.SameSite = "Strict"
@@ -196,7 +183,7 @@ func (cm *CookieManager) ExtractCookiesFromChromedp(ctx context.Context) error {
 			cookie.SameSite = "Lax"
 		}
 
-		// Encrypt the cookie value if encryption is enabled
+		// Encrypt the cookie value
 		if cm.encryption && cookie.Value != "" {
 			encryptedValue, err := cm.encrypt(cookie.Value)
 			if err != nil {
@@ -211,11 +198,10 @@ func (cm *CookieManager) ExtractCookiesFromChromedp(ctx context.Context) error {
 	return nil
 }
 
-// SaveCookiesToDisk persists cookies to a JSON file
+// Save cookies to a JSON file
 func (cm *CookieManager) SaveCookiesToDisk() error {
 	cookiesFile := filepath.Join(cm.configDir, "cookies.json")
 
-	// Filter out cookies without required fields
 	validCookies := make([]*Cookie, 0)
 	for _, cookie := range cm.cookies {
 		if cookie.Name != "" && cookie.Domain != "" {
@@ -223,7 +209,6 @@ func (cm *CookieManager) SaveCookiesToDisk() error {
 		}
 	}
 
-	// If no valid cookies, create an empty file
 	if len(validCookies) == 0 {
 		if err := os.WriteFile(cookiesFile, []byte("[]"), 0644); err != nil {
 			return fmt.Errorf("failed to create empty cookies file: %w", err)
@@ -243,11 +228,10 @@ func (cm *CookieManager) SaveCookiesToDisk() error {
 	return nil
 }
 
-// LoadCookiesFromDisk loads cookies from a JSON file
+// Load cookies from a JSON file
 func (cm *CookieManager) LoadCookiesFromDisk() error {
 	cookiesFile := filepath.Join(cm.configDir, "cookies.json")
 
-	// If file doesn't exist, initialize with empty slice
 	if _, err := os.Stat(cookiesFile); os.IsNotExist(err) {
 		cm.cookies = make([]*Cookie, 0)
 		return nil
@@ -265,23 +249,22 @@ func (cm *CookieManager) LoadCookiesFromDisk() error {
 
 	var cookies []*Cookie
 	if err := json.Unmarshal(data, &cookies); err != nil {
-		// If unmarshaling fails, log the error and initialize with empty slice
 		fmt.Printf("Warning: Failed to unmarshal cookies, using empty cookie list: %v\n", err)
 		cm.cookies = make([]*Cookie, 0)
 		return nil
 	}
-	
+
 	cm.cookies = cookies
 
 	return nil
 }
 
-// GetCookies returns all cookies
+// Return all cookies
 func (cm *CookieManager) GetCookies() []*Cookie {
 	return cm.cookies
 }
 
-// GetCookiesForDomain filters cookies by domain
+// Filter cookies by domain
 func (cm *CookieManager) GetCookiesForDomain(domain string) []*Cookie {
 	var domainCookies []*Cookie
 	for _, cookie := range cm.cookies {
@@ -292,7 +275,7 @@ func (cm *CookieManager) GetCookiesForDomain(domain string) []*Cookie {
 	return domainCookies
 }
 
-// encrypt encrypts a string using AES and returns base64 encoded string
+// Encrypt a string and return base64 encoded string
 func (cm *CookieManager) encrypt(plaintext string) (string, error) {
 	if !cm.encryption {
 		return plaintext, nil
@@ -312,11 +295,10 @@ func (cm *CookieManager) encrypt(plaintext string) (string, error) {
 	stream := cipher.NewCFBEncrypter(block, iv)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(plaintext))
 
-	// Return base64 encoded string
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-// decrypt decrypts a base64 encoded string using AES
+// Decrypt a base64 encoded string
 func (cm *CookieManager) decrypt(ciphertext string) (string, error) {
 	if !cm.encryption {
 		return ciphertext, nil
@@ -346,12 +328,12 @@ func (cm *CookieManager) decrypt(ciphertext string) (string, error) {
 	return string(ciphertextBytes), nil
 }
 
-// EnableEncryption enables or disables cookie value encryption
+// Enable or disable cookie value encryption
 func (cm *CookieManager) EnableEncryption(enabled bool) {
 	cm.encryption = enabled
 }
 
-// SetEncryptionKey sets the encryption key
+// Set the encryption key
 func (cm *CookieManager) SetEncryptionKey(key []byte) error {
 	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
 		return fmt.Errorf("key must be 16, 24, or 32 bytes long")

@@ -357,13 +357,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Let the main application handle reload
 				// m.status = "reloading"
 				// m.content = fmt.Sprintf("Reloading content from %s...", m.currentURL)
-			case "b":
-				if len(m.history) > 1 && m.historyIndex > 0 {
-					m.historyIndex--
-					m.currentURL = m.history[m.historyIndex]
-					m.status = "loading"
-					m.content = fmt.Sprintf("Loading content from %s...", m.currentURL)
-				}
 			case "c":
 				m.content = "Cookies for current site would be displayed here"
 				m.status = "showing cookies"
@@ -375,6 +368,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Toggle between dark and light mode
 				m.darkMode = !m.darkMode
 				m.styles = GetStyles(m.darkMode)
+			case "b":
+				// Trigger back navigation by returning a special message
+				return m, func() tea.Msg {
+					return struct{ Back bool }{Back: true}
+				}
+			case "f":
+				// Trigger forward navigation by returning a special message
+				return m, func() tea.Msg {
+					return struct{ Forward bool }{Forward: true}
+				}
 			case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 				// Handle link navigation
 				linkNum := int(msg.String()[0] - '1')
@@ -426,7 +429,7 @@ func (m Model) View() string {
 		statusText = m.styles.Success.Render(statusText)
 	}
 
-	shortcuts := m.styles.Help.Render("g: URL | q: Quit | r: Reload | b: Back | c: Cookies | 1-9: Links | ↑/↓: Scroll")
+	shortcuts := m.styles.Help.Render("g: URL | q: Quit | r: Reload | b: Back | f: Forward | c: Cookies | 1-9: Links | ↑/↓: Scroll")
 
 	footer = m.styles.StatusBar.Render(fmt.Sprintf("%s | %s", statusText, shortcuts))
 

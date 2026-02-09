@@ -52,15 +52,15 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 	m.loading = true
 	// Set the UI to loading state
 	m.uiModel.SetLoading(url)
-	
+
 	return func() tea.Msg {
 		// Create a timeout context for the navigation
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		
+
 		// Channel for navigation result
 		resultChan := make(chan interface{}, 1)
-		
+
 		// Start navigation in goroutine
 		go func() {
 			log.Printf("Starting navigation to: %s", url)
@@ -70,7 +70,7 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 				resultChan <- err
 				return
 			}
-			
+
 			// Extract page content
 			title, err := m.browser.GetPageTitle()
 			if err != nil {
@@ -78,21 +78,21 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 				resultChan <- err
 				return
 			}
-			
+
 			text, err := m.browser.GetPageText()
 			if err != nil {
 				log.Printf("Error getting page text: %v", err)
 				resultChan <- err
 				return
 			}
-			
+
 			links, err := m.browser.GetLinks()
 			if err != nil {
 				log.Printf("Error getting page links: %v", err)
 				resultChan <- err
 				return
 			}
-			
+
 			// Send the result
 			resultChan <- &PageContent{
 				Title: title,
@@ -101,7 +101,7 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 				URL:   url,
 			}
 		}()
-		
+
 		// Wait for result or timeout
 		log.Printf("Waiting for navigation result or timeout")
 		select {
@@ -109,22 +109,26 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 			switch r := result.(type) {
 			case error:
 				log.Printf("Navigation resulted in error: %v", r)
+				m.loading = false
 				return updateErrorMsg{Error: r}
 			case *PageContent:
 				// Sync cookies after successful navigation
 				m.syncCookies()
+				m.loading = false
 				return updateContentMsg{Content: r}
 			}
 		case <-ctx.Done():
 			log.Printf("Navigation timed out or cancelled: %v", ctx.Err())
+			m.loading = false
 			if ctx.Err() == context.DeadlineExceeded {
 				return updateErrorMsg{Error: fmt.Errorf("navigation timeout")}
 			}
 			return updateErrorMsg{Error: fmt.Errorf("navigation cancelled")}
 		}
-		
+
 		// This should never be reached, but required for compilation
 		log.Printf("Unexpected code path reached in navigateToURL")
+		m.loading = false
 		return updateErrorMsg{Error: fmt.Errorf("unexpected error")}
 	}
 }
@@ -133,7 +137,7 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 func (m *AppModel) updateUIWithPage(content *PageContent) tea.Cmd {
 	// Format the content for display
 	m.formatContent(content)
-	
+
 	// Since we can't directly access the UI model's fields,
 	// we'll need to work within the existing framework
 	// For now, we'll just return nil as we'll handle the update in the Update method
@@ -144,7 +148,7 @@ func (m *AppModel) updateUIWithPage(content *PageContent) tea.Cmd {
 func (m *AppModel) handleLinkClick(linkNumber int) tea.Cmd {
 	// For now, we'll just log the link click
 	log.Printf("Handling link click for link number: %d", linkNumber)
-	
+
 	// Get the links from the UI model
 	links := m.uiModel.GetLinks()
 	if linkNumber >= 0 && linkNumber < len(links) {
@@ -154,13 +158,150 @@ func (m *AppModel) handleLinkClick(linkNumber int) tea.Cmd {
 	return nil
 }
 
+// navigateBack navigates back in browser history
+func (m *AppModel) navigateBack() tea.Cmd {
+	log.Printf("Navigating back in history")
+
+	// Check if we can actually go back
+	if !m.browser.History().CanGoBack() {
+		log.Printf("Cannot go back in history")
+		// Return a command that sends an error message
+		return func() tea.Msg {
+			return updateErrorMsg{Error: fmt.Errorf("cannot go back, no previous pages in history")}
+		}
+	}
+
+	m.loading = true
+	m.uiModel.UpdateStatus("loading")
+
+	return func() tea.Msg {
+		log.Printf("Attempting to navigate back using ChromeDP")
+		// Navigate back using browser's history
+		if err := m.browser.NavigateBack(); err != nil {
+			log.Printf("Navigation back error: %v", err)
+			m.loading = false
+			return updateErrorMsg{Error: fmt.Errorf("navigation back failed: %w", err)}
+		}
+		log.Printf("Navigation back completed successfully")
+
+		// Get current history entry
+		currentEntry := m.browser.History().Current()
+		log.Printf("Current entry after back navigation: URL=%s, Title=%s", currentEntry.URL, currentEntry.Title)
+
+		// Extract page content
+		log.Printf("Extracting page title")
+		title, err := m.browser.GetPageTitle()
+		if err != nil {
+			log.Printf("Error getting page title: %v", err)
+			title = currentEntry.URL // fallback to URL
+		}
+		log.Printf("Page title: %s", title)
+
+		log.Printf("Extracting page text")
+		text, err := m.browser.GetPageText()
+		if err != nil {
+			log.Printf("Error getting page text: %v", err)
+			text = ""
+		}
+
+		log.Printf("Extracting page links")
+		links, err := m.browser.GetLinks()
+		if err != nil {
+			log.Printf("Error getting page links: %v", err)
+			links = []browser.Link{}
+		}
+		log.Printf("Extracted %d links", len(links))
+
+		// Send the result
+		log.Printf("Sending updateContentMsg with URL: %s", currentEntry.URL)
+		m.loading = false
+		return updateContentMsg{
+			Content: &PageContent{
+				Title: title,
+				Text:  text,
+				Links: links,
+				URL:   currentEntry.URL,
+			},
+		}
+	}
+}
+
+// navigateForward navigates forward in browser history
+func (m *AppModel) navigateForward() tea.Cmd {
+	log.Printf("Navigating forward in history")
+
+	// Check if we can actually go forward
+	if !m.browser.History().CanGoForward() {
+		log.Printf("Cannot go forward in history")
+		// Return a command that sends an error message
+		return func() tea.Msg {
+			return updateErrorMsg{Error: fmt.Errorf("cannot go forward, no next pages in history")}
+		}
+	}
+
+	m.loading = true
+	// Don't set loading message yet since we don't know the URL
+	m.uiModel.UpdateStatus("loading")
+
+	return func() tea.Msg {
+		log.Printf("Attempting to navigate forward using ChromeDP")
+		// Navigate forward using browser's history
+		if err := m.browser.NavigateForward(); err != nil {
+			log.Printf("Navigation forward error: %v", err)
+			m.loading = false
+			return updateErrorMsg{Error: fmt.Errorf("navigation forward failed: %w", err)}
+		}
+		log.Printf("Navigation forward completed successfully")
+
+		// Get current history entry
+		currentEntry := m.browser.History().Current()
+		log.Printf("Current entry after forward navigation: URL=%s, Title=%s", currentEntry.URL, currentEntry.Title)
+
+		// Extract page content
+		log.Printf("Extracting page title")
+		title, err := m.browser.GetPageTitle()
+		if err != nil {
+			log.Printf("Error getting page title: %v", err)
+			title = currentEntry.URL // fallback to URL
+		}
+		log.Printf("Page title: %s", title)
+
+		log.Printf("Extracting page text")
+		text, err := m.browser.GetPageText()
+		if err != nil {
+			log.Printf("Error getting page text: %v", err)
+			text = ""
+		}
+
+		log.Printf("Extracting page links")
+		links, err := m.browser.GetLinks()
+		if err != nil {
+			log.Printf("Error getting page links: %v", err)
+			links = []browser.Link{}
+		}
+		log.Printf("Extracted %d links", len(links))
+
+		// Send the result
+		log.Printf("Sending updateContentMsg with URL: %s", currentEntry.URL)
+		m.loading = false
+		return updateContentMsg{
+			Content: &PageContent{
+				Title: title,
+				Text:  text,
+				Links: links,
+				URL:   currentEntry.URL,
+			},
+		}
+	}
+}
+
 // syncCookies saves cookies to disk
 func (m *AppModel) syncCookies() {
 	if err := m.cookieManager.ExtractCookiesFromChromedp(m.browser.Context()); err != nil {
 		log.Printf("Warning: Failed to extract cookies: %v", err)
 		return
 	}
-	
+
 	if err := m.cookieManager.SaveCookiesToDisk(); err != nil {
 		log.Printf("Warning: Failed to save cookies: %v", err)
 		return
@@ -170,12 +311,12 @@ func (m *AppModel) syncCookies() {
 // formatContent formats the page content for display
 func (m *AppModel) formatContent(content *PageContent) string {
 	result := fmt.Sprintf("# %s\n\n", content.Title)
-	
+
 	// Add the page text
 	if content.Text != "" {
 		result += content.Text + "\n\n"
 	}
-	
+
 	// Add links section
 	if len(content.Links) > 0 {
 		result += "## Links\n\n"
@@ -185,7 +326,7 @@ func (m *AppModel) formatContent(content *PageContent) string {
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -197,23 +338,23 @@ func (m AppModel) Init() tea.Cmd {
 // Update handles events and updates the model
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	
+
 	switch msg := msg.(type) {
 	case NavigateMsg:
 		// Handle navigation request from UI
 		log.Printf("Received NavigateMsg for URL: %s", msg.URL)
 		return m, m.navigateToURL(msg.URL)
-		
+
 	case LinkClickMsg:
 		// Handle link click request from UI
 		log.Printf("Received LinkClickMsg for link number: %d", msg.LinkNumber)
 		return m, m.handleLinkClick(msg.LinkNumber)
-		
+
 	case updateContentMsg:
 		// Update UI with the page content
 		formattedContent := m.formatContent(msg.Content)
 		m.loading = false
-		
+
 		// Update the UI model with the new content
 		m.uiModel.UpdateContent(formattedContent)
 		m.uiModel.UpdateCurrentURL(msg.Content.URL)
@@ -225,7 +366,23 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.uiModel.UpdateLinks(uiLinks)
 		log.Printf("UI model updated with content, URL: %s, links: %d", msg.Content.URL, len(uiLinks))
-		
+
+	case struct{ Back bool }:
+		// Handle back navigation request from UI
+		log.Printf("Received back navigation request")
+		if !m.loading {
+			return m, m.navigateBack()
+		}
+		return m, nil
+
+	case struct{ Forward bool }:
+		// Handle forward navigation request from UI
+		log.Printf("Received forward navigation request")
+		if !m.loading {
+			return m, m.navigateForward()
+		}
+		return m, nil
+
 	case updateErrorMsg:
 		// Handle navigation error
 		log.Printf("Received updateErrorMsg: %v", msg.Error)
@@ -234,7 +391,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update UI with error message
 		m.uiModel.UpdateContent(fmt.Sprintf("Error: %v", msg.Error))
 		m.uiModel.UpdateStatus("error")
-		
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -247,6 +404,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.currentURL != "" && !m.loading {
 				return m, m.navigateToURL(m.currentURL)
 			}
+		case "b":
+			// Navigate back
+			if !m.loading {
+				return m, m.navigateBack()
+			}
+			return m, nil
+		case "f":
+			// Navigate forward
+			if !m.loading {
+				return m, m.navigateForward()
+			}
+			return m, nil
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			if !m.loading {
 				// Handle link navigation
@@ -260,7 +429,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = uiCmd
 			return m, cmd
 		}
-		
+
 	case tea.WindowSizeMsg:
 		// Handle window size changes by updating the UI model
 		uiModel, uiCmd := m.uiModel.Update(msg)
@@ -268,12 +437,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = uiCmd
 		return m, cmd
 	}
-	
+
 	// Update UI model for other messages
 	uiModel, uiCmd := m.uiModel.Update(msg)
 	m.uiModel = uiModel.(ui.Model)
 	cmd = uiCmd
-	
+
 	return m, cmd
 }
 
@@ -286,38 +455,38 @@ func main() {
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	
+
 	go func() {
 		<-sigChan
 		fmt.Println("\nReceived interrupt signal, shutting down gracefully...")
 	}()
-	
+
 	// Initialize the cookie manager
 	cookieManager, err := cookie.NewCookieManager()
 	if err != nil {
 		log.Fatalf("Failed to create cookie manager: %v", err)
 	}
-	
+
 	// Initialize the browser
 	browser, err := browser.NewBrowser()
 	if err != nil {
 		log.Fatalf("Failed to create browser: %v", err)
 	}
-	
+
 	// Ensure browser is closed when main function exits
 	defer func() {
 		browser.Close()
 	}()
-	
+
 	// Load cookies into the browser on startup
 	fmt.Println("Loading cookies into browser...")
 	if err := cookieManager.LoadCookiesIntoChromedp(browser.Context()); err != nil {
 		log.Printf("Warning: Failed to load cookies into browser: %v", err)
 	}
-	
+
 	// Create UI model
 	uiModel := ui.NewModel()
-	
+
 	// Create app model
 	model := AppModel{
 		browser:       browser,
@@ -326,12 +495,12 @@ func main() {
 		loading:       false,
 		currentURL:    "",
 	}
-	
+
 	// Start Bubble Tea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("Bubble Tea program error: %v", err)
 	}
-	
+
 	fmt.Println("Browser session completed successfully!")
 }

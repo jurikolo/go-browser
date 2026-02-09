@@ -12,8 +12,9 @@ import (
 
 // Browser wraps a ChromeDP context to provide a simplified browser interface
 type Browser struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx     context.Context
+	cancel  context.CancelFunc
+	history *History
 }
 
 // NewBrowser initializes a new browser instance with ChromeDP context
@@ -57,14 +58,28 @@ func NewBrowser() (*Browser, error) {
 	}
 
 	return &Browser{
-		ctx:    ctx,
-		cancel: cancelCtx,
+		ctx:     ctx,
+		cancel:  cancelCtx,
+		history: NewHistory(100),
 	}, nil
 }
 
 // Navigate navigates the browser to the specified URL
 func (b *Browser) Navigate(url string) error {
-	return chromedp.Run(b.ctx, chromedp.Navigate(url))
+	if err := chromedp.Run(b.ctx, chromedp.Navigate(url)); err != nil {
+		return err
+	}
+	
+	// Get the page title
+	title, err := b.GetPageTitle()
+	if err != nil {
+		title = url // fallback to URL if title unavailable
+	}
+	
+	// Add to history
+	b.history.Add(url, title)
+	
+	return nil
 }
 
 // GetPageText extracts all visible text from the current page
@@ -140,4 +155,48 @@ func (b *Browser) Close() {
 	if b.cancel != nil {
 		b.cancel()
 	}
+	
+	// Save history to disk when closing
+	if b.history != nil {
+		if err := b.history.SaveToDisk(); err != nil {
+			// Log error but don't fail closing
+			fmt.Printf("Warning: Failed to save history: %v\n", err)
+		}
+	}
+}
+
+// History returns the browser's history manager
+func (b *Browser) History() *History {
+	return b.history
+}
+
+
+// NavigateBack navigates back in browser history
+func (b *Browser) NavigateBack() error {
+	// Update our internal history pointer first
+	entry, err := b.history.Back()
+	if err != nil {
+		return err
+	}
+	
+	// Use ChromeDP's native back functionality
+	if err := chromedp.Run(b.ctx, chromedp.Navigate(entry.URL)); err != nil {
+		// If navigation fails, revert the history pointer
+		b.history.Forward()
+		return err
+	}
+	
+	return nil
+}
+
+// NavigateForward navigates forward in browser history
+func (b *Browser) NavigateForward() error {
+	// Use ChromeDP's native forward functionality
+	if err := chromedp.Run(b.ctx, chromedp.NavigateForward()); err != nil {
+		return err
+	}
+	
+	// Update our internal history pointer
+	_, err := b.history.Forward()
+	return err
 }

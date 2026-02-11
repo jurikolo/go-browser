@@ -1,0 +1,52 @@
+# Example configuration file for Go-Browser
+# This file demonstrates all available configuration options
+
+# User agent string sent with HTTP requests
+# Default: "Go-Browser/1.0"
+user_agent: "Go-Browser/1.0"
+
+# Homepage URL to load when the browser starts
+# Must be a valid URL starting with http:// or https://
+# Default: "https://jurikolo.name"
+homepage: "https://jurikolo.name"
+
+# Path to store cookies
+# Default: ~/.config/chromedp-browser/cookies.json
+cookie_store_path: "~/.config/chromedp-browser/cookies.json"
+
+# Path to store browsing history
+# Default: ~/.config/chromedp-browser/history.json
+history_store_path: "~/.config/chromedp-browser/history.json"
+
+# Chrome user data directory (profile location)
+# Default: ~/.config/chromedp-browser
+user_data_dir: "~/.config/chromedp-browser"
+
+# Run browser in headless mode (no visible window)
+# Set to false to see the browser window
+# Default: true
+headless_mode: true
+
+# Disable image loading for faster page loads
+# Set to false to load images
+# Default: true
+disable_images: true
+
+# Navigation timeout duration
+# Format: number + time unit (ns, us, ms, s, m, h)
+# Default: "60s"
+navigation_timeout: "60s"
+
+# Maximum number of history entries to store
+# Default: 1000
+max_history_size: 1000
+
+# Additional Chrome flags to pass to the browser
+# See https://peter.sh/experiments/chromium-command-line-switches/
+# for available flags
+# Default: []
+chrome_flags:
+  - "--no-sandbox"
+  - "--disable-dev-shm-usage"
+  - "--disable-gpu"
+  # Add more flags as needed

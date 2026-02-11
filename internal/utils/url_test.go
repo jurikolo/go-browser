@@ -1,4 +1,4 @@
-package ui
+package utils
 
 import "testing"
 
@@ -31,14 +31,12 @@ func TestSetUrlPrefix(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				model := NewModel()
-				model.currentURL = tt.input
-				model.SetUrlPrefix()
-				
-				if model.currentURL != tt.expected {
-					t.Errorf("SetUrlPrefix(%s) = %s; expected %s", tt.input, model.currentURL, tt.expected)
-				}
-			})
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			result := SetUrlPrefix(tt.input)
+			
+			if result != tt.expected {
+				t.Errorf("SetUrlPrefix(%s) = %s; expected %s", tt.input, result, tt.expected)
+			}
+		})
+	}
 }

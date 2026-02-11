@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/chromedp/chromedp"
+	"github.com/jurikolo/go-browser/config"
 )
 
 type Browser struct {
@@ -57,6 +58,67 @@ func NewBrowser() (*Browser, error) {
 		ctx:     ctx,
 		cancel:  cancelCtx,
 		history: NewHistory(100),
+	}, nil
+}
+
+// NewBrowserWithConfig initializes a new browser instance with ChromeDP context using the provided configuration
+func NewBrowserWithConfig(cfg *config.Config) (*Browser, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	if err := cfg.EnsurePaths(); err != nil {
+		return nil, fmt.Errorf("failed to ensure paths: %w", err)
+	}
+
+	// Set up ChromeDP options
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.UserDataDir(cfg.UserDataDir),
+		chromedp.Flag("disable-images", cfg.DisableImages),
+		chromedp.UserAgent(cfg.UserAgent),
+	)
+
+	// Add headless flag if enabled
+	if cfg.HeadlessMode {
+		opts = append(opts, chromedp.Headless)
+	}
+
+	// Add custom Chrome flags
+	for _, flag := range cfg.ChromeFlags {
+		// Parse flag format: --flag=value or --flag
+		if len(flag) > 2 && flag[0:2] == "--" {
+			eqIndex := len(flag)
+			for i, c := range flag {
+				if c == '=' {
+					eqIndex = i
+					break
+				}
+			}
+			
+			if eqIndex < len(flag) {
+				key := flag[2:eqIndex]
+				value := flag[eqIndex+1:]
+				opts = append(opts, chromedp.Flag(key, value))
+			} else {
+				key := flag[2:]
+				opts = append(opts, chromedp.Flag(key, true))
+			}
+		}
+	}
+
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	ctx, cancelCtx := chromedp.NewContext(allocCtx)
+
+	if err := chromedp.Run(ctx); err != nil {
+		cancel()
+		cancelCtx()
+		return nil, fmt.Errorf("failed to start browser: %w", err)
+	}
+
+	return &Browser{
+		ctx:     ctx,
+		cancel:  cancelCtx,
+		history: NewHistory(cfg.MaxHistorySize),
 	}, nil
 }
 

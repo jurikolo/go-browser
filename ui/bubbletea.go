@@ -2,12 +2,12 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jurikolo/go-browser/internal/utils"
 )
 
 type Link struct {
@@ -288,11 +288,8 @@ func (m *Model) SetLoading(url string) {
 	m.viewport.SetContent(m.styles.Content.Render(m.content))
 }
 
-func (m *Model) SetUrlPrefix(url string) {
-	if !(strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "/")) {
-		m.currentURL = "https://" + url
-	}
-	return
+func (m *Model) SetUrlPrefix() {
+	m.currentURL = utils.SetUrlPrefix(m.currentURL)
 }
 
 // Init the model
@@ -326,7 +323,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.status = "error"
 					m.content = m.styles.Error.Render("Please enter a valid URL")
 				} else {
-					m.SetUrlPrefix(m.currentURL)
+					m.SetUrlPrefix()
 					m.status = "loading"
 					m.mode = "normal"
 					m.content = fmt.Sprintf("Loading content from %s...", m.currentURL)

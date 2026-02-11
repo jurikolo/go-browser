@@ -602,9 +602,7 @@ File: config/config.go
    - Environment variables (override YAML)
    - Command-line flags (final override)
 
-3. Use libraries:
-   - github.com/spf13/viper for config loading
-   - github.com/spf13/pflag for CLI flags
+3. Use native Go libraries where possible.
 
 4. CLI flags to support:
    - --url <url> : Start with specific URL

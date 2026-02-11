@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jurikolo/go-browser/browser"
+	"github.com/jurikolo/go-browser/config"
 	"github.com/jurikolo/go-browser/cookie"
 	"github.com/jurikolo/go-browser/ui"
 )
@@ -43,6 +43,7 @@ type AppModel struct {
 	uiModel       ui.Model
 	loading       bool
 	currentURL    string
+	config        *config.Config
 }
 
 // navigateToURL navigates to a URL in a goroutine and returns a command
@@ -55,7 +56,7 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 
 	return func() tea.Msg {
 		// Create a timeout context for the navigation
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), m.config.NavigationTimeout)
 		defer cancel()
 
 		// Channel for navigation result
@@ -332,7 +333,7 @@ func (m *AppModel) formatContent(content *PageContent) string {
 
 // Init initializes the application
 func (m AppModel) Init() tea.Cmd {
-	return m.navigateToURL("https://jurikolo.name")
+	return m.navigateToURL(m.config.Homepage)
 }
 
 // Update handles events and updates the model
@@ -434,6 +435,12 @@ func (m AppModel) View() string {
 }
 
 func main() {
+	// Load configuration
+	cfg, err := config.LoadWithFlags()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -450,7 +457,7 @@ func main() {
 	}
 
 	// Initialize the browser
-	browser, err := browser.NewBrowser()
+	browser, err := browser.NewBrowserWithConfig(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create browser: %v", err)
 	}
@@ -476,6 +483,7 @@ func main() {
 		uiModel:       uiModel,
 		loading:       false,
 		currentURL:    "",
+		config:        cfg,
 	}
 
 	// Start Bubble Tea program

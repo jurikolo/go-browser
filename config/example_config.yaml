@@ -6,7 +6,7 @@
 user_agent: "Go-Browser/1.0"
 
 # Homepage URL to load when the browser starts
-# Must be a valid URL starting with http:// or https://
+# Must be a valid URL starting with http://, https://, or file://
 # Default: "https://jurikolo.name"
 homepage: "https://jurikolo.name"
 

@@ -211,8 +211,8 @@ func (c *Config) SetUrlPrefix() {
 func (c *Config) Validate() error {
 	c.SetUrlPrefix()
 	// Validate homepage URL format
-	if c.Homepage != "" && !strings.HasPrefix(c.Homepage, "http://") && !strings.HasPrefix(c.Homepage, "https://") {
-		return fmt.Errorf("homepage must be a valid URL starting with http:// or https://")
+	if c.Homepage != "" && !strings.HasPrefix(c.Homepage, "http://") && !strings.HasPrefix(c.Homepage, "https://") && !strings.HasPrefix(c.Homepage, "file://") {
+		return fmt.Errorf("homepage must be a valid URL starting with http://, https://, or file://")
 	}
 	
 	// Validate timeout values

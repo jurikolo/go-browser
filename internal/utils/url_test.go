@@ -26,7 +26,17 @@ func TestSetUrlPrefix(t *testing.T) {
 		{
 			name:     "Local file path",
 			input:    "/tmp/test.html",
-			expected: "/tmp/test.html",
+			expected: "file:///tmp/test.html",
+		},
+		{
+			name:     "File URL",
+			input:    "file:///home/user/index.html",
+			expected: "file:///home/user/index.html",
+		},
+		{
+			name:     "HTML file without path",
+			input:    "index.html",
+			expected: "file://index.html",
 		},
 	}
 

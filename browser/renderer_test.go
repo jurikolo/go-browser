@@ -19,9 +19,9 @@ func TestFormatHTML(t *testing.T) {
 		{
 			name: "Headings",
 			html: `<h1>Main Title</h1>
-                   <h2>Subtitle</h2>
-                   <h3>Section</h3>`,
-			expected: "Main Title\n==========\nSubtitle\n--------\nSection\n\n",
+			                <h2>Subtitle</h2>
+			                <h3>Section</h3>`,
+			expected: "# Main Title\n## Subtitle\n### Section\n",
 		},
 		{
 			name: "Links",

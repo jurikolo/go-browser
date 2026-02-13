@@ -4,9 +4,10 @@ package browser
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/net/html"
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/html"
 )
 
 type RenderedLink struct {
@@ -84,10 +85,36 @@ func (r *Renderer) renderNode(buf *bytes.Buffer, n *html.Node) {
 // Handle the opening of HTML elements
 func (r *Renderer) renderElement(buf *bytes.Buffer, n *html.Node) {
 	switch n.Data {
-	case "h1", "h2", "h3", "h4", "h5", "h6":
+	case "h1":
 		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
 			buf.WriteString("\n")
 		}
+		buf.WriteString("# ")
+	case "h2":
+		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("## ")
+	case "h3":
+		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("### ")
+	case "h4":
+		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("#### ")
+	case "h5":
+		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("##### ")
+	case "h6":
+		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("###### ")
 	case "p":
 		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n\n") && !strings.HasSuffix(buf.String(), "\n") {
 			buf.WriteString("\n")
@@ -131,33 +158,15 @@ func (r *Renderer) renderElement(buf *bytes.Buffer, n *html.Node) {
 		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), " ") && !strings.HasSuffix(buf.String(), "\n") {
 			buf.WriteString(" ")
 		}
+	case "i", "em":
+		buf.WriteString("*")
 	}
 }
 
 // addPostElementFormatting handles formatting that comes after an element's content
 func (r *Renderer) addPostElementFormatting(buf *bytes.Buffer, n *html.Node) {
 	switch n.Data {
-	case "h1":
-		content := buf.String()
-		lines := strings.Split(content, "\n")
-		if len(lines) > 0 {
-			lastLine := strings.TrimSpace(lines[len(lines)-1])
-			if lastLine != "" {
-				underline := strings.Repeat("=", len(lastLine))
-				buf.WriteString(fmt.Sprintf("\n%s\n", underline))
-			}
-		}
-	case "h2":
-		content := buf.String()
-		lines := strings.Split(content, "\n")
-		if len(lines) > 0 {
-			lastLine := strings.TrimSpace(lines[len(lines)-1])
-			if lastLine != "" {
-				underline := strings.Repeat("-", len(lastLine))
-				buf.WriteString(fmt.Sprintf("\n%s\n", underline))
-			}
-		}
-	case "h3", "h4", "h5", "h6":
+	case "h1", "h2", "h3", "h4", "h5", "h6":
 		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), "\n") {
 			buf.WriteString("\n")
 		}
@@ -185,6 +194,8 @@ func (r *Renderer) addPostElementFormatting(buf *bytes.Buffer, n *html.Node) {
 		if buf.Len() > 0 && !strings.HasSuffix(buf.String(), " ") && !strings.HasSuffix(buf.String(), "\n") {
 			buf.WriteString(" ")
 		}
+	case "i", "em":
+		buf.WriteString("*")
 	}
 }
 
@@ -192,7 +203,7 @@ func (r *Renderer) addPostElementFormatting(buf *bytes.Buffer, n *html.Node) {
 func (r *Renderer) extractText(n *html.Node) string {
 	var buf bytes.Buffer
 	var extract func(*html.Node)
-	
+
 	extract = func(node *html.Node) {
 		if node.Type == html.TextNode {
 			buf.WriteString(node.Data)
@@ -201,7 +212,7 @@ func (r *Renderer) extractText(n *html.Node) string {
 			extract(c)
 		}
 	}
-	
+
 	extract(n)
 	return strings.TrimSpace(buf.String())
 }

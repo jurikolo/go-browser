@@ -94,7 +94,7 @@ func NewBrowserWithConfig(cfg *config.Config) (*Browser, error) {
 					break
 				}
 			}
-			
+
 			if eqIndex < len(flag) {
 				key := flag[2:eqIndex]
 				value := flag[eqIndex+1:]
@@ -140,29 +140,19 @@ func (b *Browser) Navigate(url string) error {
 
 // Extract all visible text from the current page
 func (b *Browser) GetPageText() (string, error) {
-	var text string
-	err := chromedp.Run(b.ctx,
-		chromedp.Evaluate(`
-			(function() {
-				var walker = document.createTreeWalker(
-					document.body,
-					NodeFilter.SHOW_TEXT,
-					null,
-					false
-				);
-				var textNodes = [];
-				var node;
-				while (node = walker.nextNode()) {
-					if (node.parentElement.tagName !== 'SCRIPT' &&
-					    node.parentElement.tagName !== 'STYLE') {
-						textNodes.push(node.nodeValue);
-					}
-				}
-				return textNodes.join(' ').replace(/\s+/g, ' ').trim();
-			})()
-		`, &text),
-	)
-	return text, err
+	// Get the HTML content of the page
+	html, err := b.GetPageHTML()
+	if err != nil {
+		return "", err
+	}
+
+	// Format the HTML content using our renderer
+	formatted, _, err := FormatHTML(html)
+	if err != nil {
+		return "", err
+	}
+
+	return formatted, nil
 }
 
 // Retrieve the title of the current page
@@ -193,6 +183,15 @@ func (b *Browser) GetLinks() ([]Link, error) {
 		`, &links),
 	)
 	return links, err
+}
+
+// GetPageHTML returns the outer HTML of the current page
+func (b *Browser) GetPageHTML() (string, error) {
+	var html string
+	err := chromedp.Run(b.ctx,
+		chromedp.OuterHTML("html", &html),
+	)
+	return html, err
 }
 
 // Return the browser's context

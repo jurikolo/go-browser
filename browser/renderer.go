@@ -54,7 +54,7 @@ func (r *Renderer) FormatHTML(htmlContent string) (string, []RenderedLink, error
 	return buf.String(), r.links, nil
 }
 
-// Processe HTML nodes and convert to formatted text
+// Process HTML nodes and convert to formatted text
 func (r *Renderer) renderNode(buf *bytes.Buffer, n *html.Node) {
 	// Skip script and style elements entirely
 	if n.Type == html.ElementNode && (n.Data == "script" || n.Data == "style") {

@@ -19,7 +19,7 @@ import (
 type PageContent struct {
 	Title string
 	Text  string
-	Links []browser.Link
+	Links []browser.EnhancedLink
 	URL   string
 }
 
@@ -87,7 +87,7 @@ func (m *AppModel) navigateToURL(url string) tea.Cmd {
 				return
 			}
 
-			links, err := m.browser.GetLinks()
+			links, err := m.browser.ExtractLinks()
 			if err != nil {
 				log.Printf("Error getting page links: %v", err)
 				resultChan <- err
@@ -206,10 +206,10 @@ func (m *AppModel) navigateBack() tea.Cmd {
 		}
 
 		log.Printf("Extracting page links")
-		links, err := m.browser.GetLinks()
+		links, err := m.browser.ExtractLinks()
 		if err != nil {
 			log.Printf("Error getting page links: %v", err)
-			links = []browser.Link{}
+			links = []browser.EnhancedLink{}
 		}
 		log.Printf("Extracted %d links", len(links))
 
@@ -275,10 +275,10 @@ func (m *AppModel) navigateForward() tea.Cmd {
 		}
 
 		log.Printf("Extracting page links")
-		links, err := m.browser.GetLinks()
+		links, err := m.browser.ExtractLinks()
 		if err != nil {
 			log.Printf("Error getting page links: %v", err)
-			links = []browser.Link{}
+			links = []browser.EnhancedLink{}
 		}
 		log.Printf("Extracted %d links", len(links))
 

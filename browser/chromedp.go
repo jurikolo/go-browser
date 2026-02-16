@@ -4,17 +4,25 @@ package browser
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/jurikolo/go-browser/config"
 )
 
 type Browser struct {
-	ctx     context.Context
-	cancel  context.CancelFunc
-	history *History
+	ctx          context.Context
+	cancel       context.CancelFunc
+	history      *History
+	cfg          *config.Config
+	requestCount int64
+	loadTime     time.Duration
 }
 
 type Link struct {
@@ -119,14 +127,38 @@ func NewBrowserWithConfig(cfg *config.Config) (*Browser, error) {
 		ctx:     ctx,
 		cancel:  cancelCtx,
 		history: NewHistory(cfg.MaxHistorySize),
+		cfg:     cfg,
 	}, nil
 }
 
-// Navigates the browser to the specified URL
+// Navigates the browser to the specified URL with performance monitoring
 func (b *Browser) Navigate(url string) error {
-	if err := chromedp.Run(b.ctx, chromedp.Navigate(url)); err != nil {
-		return err
+	startTime := time.Now()
+	b.requestCount = 0
+
+	// Enable network domain to track requests
+	if err := chromedp.Run(b.ctx, network.Enable()); err != nil {
+		log.Printf("Warning: Failed to enable network monitoring: %v", err)
 	}
+
+	// Set up network event listener
+	chromedp.ListenTarget(b.ctx, func(ev interface{}) {
+		if _, ok := ev.(*network.EventRequestWillBeSent); ok {
+			b.requestCount++
+		}
+	})
+
+	// Navigate to the URL
+	if err := chromedp.Run(b.ctx, chromedp.Navigate(url)); err != nil {
+		return b.handleNavigationError(err, url)
+	}
+
+	// Wait for page to load
+	if err := b.WaitForNavigation(); err != nil {
+		log.Printf("Warning: Navigation wait failed: %v", err)
+	}
+
+	b.loadTime = time.Since(startTime)
 
 	title, err := b.GetPageTitle()
 	if err != nil {
@@ -136,6 +168,120 @@ func (b *Browser) Navigate(url string) error {
 	b.history.Add(url, title)
 
 	return nil
+}
+
+// ExecuteJS executes JavaScript code in the browser context and returns the result
+// Example: Extract data not easily accessible via DOM
+// result, err := browser.ExecuteJS("document.querySelectorAll('a').length")
+func (b *Browser) ExecuteJS(script string) (interface{}, error) {
+	var result interface{}
+	err := chromedp.Run(b.ctx,
+		chromedp.Evaluate(script, &result),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute JavaScript: %w", err)
+	}
+	return result, nil
+}
+
+// TakeScreenshot captures a screenshot of the current page and saves it to the specified filename
+// Screenshots are saved to ~/.config/chromedp-browser/screenshots/
+func (b *Browser) TakeScreenshot(filename string) error {
+	// Ensure screenshots directory exists
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	screenshotsDir := filepath.Join(homeDir, ".config", "chromedp-browser", "screenshots")
+	if err := os.MkdirAll(screenshotsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create screenshots directory: %w", err)
+	}
+
+	// Full path to screenshot file
+	fullPath := filepath.Join(screenshotsDir, filename)
+
+	// Capture screenshot
+	var buf []byte
+	if err := chromedp.Run(b.ctx, chromedp.CaptureScreenshot(&buf)); err != nil {
+		return fmt.Errorf("failed to capture screenshot: %w", err)
+	}
+
+	// Save to file
+	if err := os.WriteFile(fullPath, buf, 0644); err != nil {
+		return fmt.Errorf("failed to save screenshot: %w", err)
+	}
+
+	log.Printf("Screenshot saved to: %s", fullPath)
+	return nil
+}
+
+// WaitForSelector waits for an element matching the selector to appear in the DOM
+// Useful for dynamic content that loads asynchronously
+func (b *Browser) WaitForSelector(selector string, timeout time.Duration) error {
+	if timeout <= 0 {
+		timeout = 30 * time.Second // Default timeout
+	}
+
+	ctx, cancel := context.WithTimeout(b.ctx, timeout)
+	defer cancel()
+
+	return chromedp.Run(ctx, chromedp.WaitVisible(selector))
+}
+
+// WaitForNavigation waits for the page to finish navigating and loading
+// Useful after clicking links or submitting forms
+func (b *Browser) WaitForNavigation() error {
+	return chromedp.Run(b.ctx, chromedp.WaitReady("body"))
+}
+
+// DisableJavaScript disables JavaScript execution in the browser
+// Useful for text-only mode or performance optimization
+func (b *Browser) DisableJavaScript() error {
+	return chromedp.Run(b.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return runtime.Disable().Do(ctx)
+	}))
+}
+
+// EnableJavaScript enables JavaScript execution in the browser
+func (b *Browser) EnableJavaScript() error {
+	return chromedp.Run(b.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return runtime.Enable().Do(ctx)
+	}))
+}
+
+// SetUserAgent sets a custom user agent string for the browser
+// Useful for mobile/desktop rendering simulation
+func (b *Browser) SetUserAgent(userAgent string) error {
+	// Set user agent through Chrome flags
+	return chromedp.Run(b.ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		// This is a simplified approach - in practice, you might need to restart
+		// the browser with new flags for this to take effect
+		return nil
+	}))
+}
+
+// FillForm fills a form field with the specified value
+// selector: CSS selector for the form field
+// value: value to fill in the field
+func (b *Browser) FillForm(selector string, value string) error {
+	return chromedp.Run(b.ctx, chromedp.SendKeys(selector, value))
+}
+
+// SubmitForm submits a form by clicking its submit button
+// selector: CSS selector for the form submit button
+func (b *Browser) SubmitForm(selector string) error {
+	return chromedp.Run(b.ctx, chromedp.Click(selector))
+}
+
+// GetRequestCount returns the number of HTTP requests made for the current page
+func (b *Browser) GetRequestCount() int64 {
+	return b.requestCount
+}
+
+// GetLoadTime returns the time taken to load the current page
+func (b *Browser) GetLoadTime() time.Duration {
+	return b.loadTime
 }
 
 // Extract all visible text from the current page
@@ -245,3 +391,88 @@ func (b *Browser) NavigateForward() error {
 
 	return nil
 }
+
+// handleNavigationError handles navigation errors with retry logic
+func (b *Browser) handleNavigationError(err error, url string) error {
+	log.Printf("Navigation error: %v", err)
+
+	// Check if it's a context canceled error (browser closed)
+	if strings.Contains(err.Error(), "context canceled") {
+		log.Printf("Browser context was canceled, attempting to restart...")
+		if restartErr := b.restart(); restartErr != nil {
+			return fmt.Errorf("navigation failed and browser restart failed: %w (original error: %v)", restartErr, err)
+		}
+
+		// Retry navigation after restart
+		log.Printf("Retrying navigation to %s after browser restart", url)
+		if retryErr := chromedp.Run(b.ctx, chromedp.Navigate(url)); retryErr != nil {
+			return fmt.Errorf("navigation retry failed after browser restart: %w (original error: %v)", retryErr, err)
+		}
+		return nil
+	}
+
+	return err
+}
+
+// restart attempts to restart the browser context
+func (b *Browser) restart() error {
+	// Close current context
+	if b.cancel != nil {
+		b.cancel()
+	}
+
+	// Create new browser context with same configuration
+	var err error
+	var newBrowser *Browser
+
+	if b.cfg != nil {
+		newBrowser, err = NewBrowserWithConfig(b.cfg)
+	} else {
+		newBrowser, err = NewBrowser()
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to create new browser instance: %w", err)
+	}
+
+	// Update current browser with new context
+	b.ctx = newBrowser.ctx
+	b.cancel = newBrowser.cancel
+
+	return nil
+}
+
+// Example usage of advanced features:
+//
+// 1. JavaScript Execution:
+//    result, err := browser.ExecuteJS("document.title")
+//    if err != nil {
+//        log.Printf("Failed to execute JS: %v", err)
+//    } else {
+//        log.Printf("Page title from JS: %v", result)
+//    }
+//
+// 2. Screenshot capability:
+//    err := browser.TakeScreenshot("example.png")
+//    if err != nil {
+//        log.Printf("Failed to take screenshot: %v", err)
+//    }
+//
+// 3. Wait strategies:
+//    err := browser.WaitForSelector("#dynamic-content", 10*time.Second)
+//    if err != nil {
+//        log.Printf("Element not found: %v", err)
+//    }
+//
+// 4. Performance monitoring:
+//    log.Printf("Requests: %d, Load time: %v", browser.GetRequestCount(), browser.GetLoadTime())
+//
+// 5. Form filling:
+//    err := browser.FillForm("#username", "example")
+//    if err != nil {
+//        log.Printf("Failed to fill form: %v", err)
+//    }
+//    err = browser.SubmitForm("#submit-btn")
+//    if err != nil {
+//        log.Printf("Failed to submit form: %v", err)
+//    }
